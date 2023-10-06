@@ -1,0 +1,131 @@
+// This script is given for testing purpose
+//
+// For a given RG, it will
+//  - Deploy an Automation account using a System-assigned Managed Identity
+//  - Give Contributor role to System-assigned Managed Identity to the RG 
+//  - Deploy Runbooks to Automation Account
+
+//
+// Example of execution:
+// az deployment group create --resource-group MyRg --template-file main.bicep
+
+// Location
+param Location string = 'West Europe'
+param LocationShort string = 'weu'
+
+
+param AutomationAccountName string = 'automationaccount03'
+
+
+resource AutomationAccount 'Microsoft.Automation/automationAccounts@2020-01-13-preview' = {
+  name: AutomationAccountName
+  location: Location
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties:{
+    sku: {
+      name: 'Basic'
+    }
+  }
+}
+
+
+resource Az_ResourceGraph 'Microsoft.Automation/automationAccounts/modules@2020-01-13-preview' = {
+  name: '${AutomationAccountName}/Az.ResourceGraph'
+  dependsOn: [
+    AutomationAccount
+  ]
+  properties: {
+    contentLink: {
+      uri: 'https://www.powershellgallery.com/api/v2/package/Az.ResourceGraph/0.11.0'
+      version: '0.11.0'
+    }
+  }
+}
+
+
+resource Runbook_Create_Enable_ESU_Licens 'Microsoft.Automation/automationAccounts/runbooks@2019-06-01' = {
+  name: '${AutomationAccount.name}/Create-Enable-ESU-Licens'
+  location: Location
+  properties:{
+    runbookType: 'PowerShell'
+    logProgress: false
+    logVerbose: false
+    logActivityTrace: 0
+    publishContentLink: {
+      uri: 'https://raw.githubusercontent.com/latj/Azure-ArcVM-ESU/main/runbooks/Create-Enable-ESU-Licens.ps1'      
+    }
+  }
+}
+
+resource Runbook_Delete_Remove_ESU_licens 'Microsoft.Automation/automationAccounts/runbooks@2019-06-01' = {
+  name: '${AutomationAccount.name}/Delete-Remove-ESU-licens'
+  location: Location
+  properties:{
+    runbookType: 'PowerShell'
+    logProgress: false
+    logVerbose: false
+    logActivityTrace: 0
+    publishContentLink: {
+      uri: 'https://raw.githubusercontent.com/latj/Azure-ArcVM-ESU/main/runbooks/Delete-Remove-ESU-licens.ps1'        
+    }
+  }
+}
+
+
+resource DailySchedule 'Microsoft.Automation/automationAccounts/schedules@2020-01-13-preview' = {
+  name: '${AutomationAccount.name}/Schedules-Create-Enable-ESU-Licens'
+  properties:{
+    description: 'Schedule daily'
+    startTime: ''
+    frequency: 'Day'
+    interval: 1
+  }
+}
+
+param Sched1Guid string = newGuid()
+resource ScheduleRunbook_Create_Enable_ESU_Licens 'Microsoft.Automation/automationAccounts/jobSchedules@2020-01-13-preview' = {
+  name: '${AutomationAccount.name}/${Sched1Guid}'
+  properties:{
+    schedule:{
+      name: split(DailySchedule.name, '/')[1]
+    }
+    runbook:{
+      name: split(Runbook_Create_Enable_ESU_Licens.name, '/')[1]
+    }
+  }
+}
+
+param Sched2Guid string = newGuid()
+resource ScheduleRunbook_Runbook_Delete_Remove_ESU_licens 'Microsoft.Automation/automationAccounts/jobSchedules@2020-01-13-preview' = {
+  name: '${AutomationAccount.name}/${Sched2Guid}'
+  properties:{
+    schedule:{
+      name: split(DailySchedule.name, '/')[1]
+    }
+    runbook:{
+      name: split(Runbook_Delete_Remove_ESU_licens.name, '/')[1]
+    }
+  }
+}
+
+
+param assignmentName string = guid(resourceGroup().id)
+resource SystemAssignedManagedIdentityRgContributor 'Microsoft.Authorization/roleAssignments@2020-03-01-preview' = {
+  name: assignmentName
+  properties: {
+    roleDefinitionId: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c'
+    principalId: AutomationAccount.identity.principalId
+  }
+  dependsOn:[
+    AutomationAccount
+    // Workaround because AutomationAccount.identity.principalId takes time to be available ...
+    // This workaround avoid the PrincipalNotFound error message
+    
+  ]
+}
+
+
+
+
