@@ -11,10 +11,10 @@
 
 // Location
 param Location string = 'West Europe'
-param LocationShort string = 'weu'
 
 
-param AutomationAccountName string = 'automationaccount03'
+
+param AutomationAccountName string = 'aa-ESU-automation'
 
 
 resource AutomationAccount 'Microsoft.Automation/automationAccounts@2020-01-13-preview' = {
@@ -59,8 +59,8 @@ resource Runbook_Create_Enable_ESU_Licens 'Microsoft.Automation/automationAccoun
   }
 }
 
-resource Runbook_Delete_Remove_ESU_licens 'Microsoft.Automation/automationAccounts/runbooks@2019-06-01' = {
-  name: '${AutomationAccount.name}/Delete-Remove-ESU-licens'
+resource Runbook_Deactivate_Remove_ESU_licens 'Microsoft.Automation/automationAccounts/runbooks@2019-06-01' = {
+  name: '${AutomationAccount.name}/Deactivate-Remove-ESU-licens'
   location: Location
   properties:{
     runbookType: 'PowerShell'
@@ -68,7 +68,7 @@ resource Runbook_Delete_Remove_ESU_licens 'Microsoft.Automation/automationAccoun
     logVerbose: false
     logActivityTrace: 0
     publishContentLink: {
-      uri: 'https://raw.githubusercontent.com/latj/Azure-ArcVM-ESU/main/runbooks/Delete-Remove-ESU-licens.ps1'        
+      uri: 'https://raw.githubusercontent.com/latj/Azure-ArcVM-ESU/main/runbooks/Deactivate-Remove-ESU-Licens.ps1'        
     }
   }
 }
@@ -98,14 +98,14 @@ resource ScheduleRunbook_Create_Enable_ESU_Licens 'Microsoft.Automation/automati
 }
 
 param Sched2Guid string = newGuid()
-resource ScheduleRunbook_Runbook_Delete_Remove_ESU_licens 'Microsoft.Automation/automationAccounts/jobSchedules@2020-01-13-preview' = {
+resource ScheduleRunbook_Runbook_Deactivate_Remove_ESU_licens 'Microsoft.Automation/automationAccounts/jobSchedules@2020-01-13-preview' = {
   name: '${AutomationAccount.name}/${Sched2Guid}'
   properties:{
     schedule:{
       name: split(DailySchedule.name, '/')[1]
     }
     runbook:{
-      name: split(Runbook_Delete_Remove_ESU_licens.name, '/')[1]
+      name: split(Runbook_Deactivate_Remove_ESU_licens.name, '/')[1]
     }
   }
 }
