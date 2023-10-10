@@ -51,60 +51,45 @@ foreach ($automationAccount in $automationAccounts)
 
 $subId = $automationAccount.subscriptionId
 
-$ArcVMQuery = "Resources | where type == 'microsoft.hybridcompute/machines' | where subscriptionId == '$subId' | extend cpu=tostring(properties.detectedProperties.processorCount), edition=tostring(properties.licenseProfile.esuProfile.serverType), osSku=tostring(properties.osSku), licenseAssignmentState=tostring(properties.licenseProfile.esuProfile.licenseAssignmentState)| where osSku contains 'Windows Server 2012' | where licenseAssignmentState contains 'NotAssigned' | project name, cpu, edition, osSku, location, resourceGroup, licenseAssignmentState"
+$ArcLicensesQuery = "Resources | where type == 'microsoft.hybridcompute/licenses' | extend licenseId = tolower(tostring(id)) | where subscriptionId == '$subId'"
+$ArcLicensesQueryResponse = Search-AzGraph -Query $ArcLicensesQuery
 
-$ArcVMQueryResponse = Search-AzGraph -Query $ArcVMQuery
+$ArcLicensesProfileQuery = "Resources | where type =~ 'microsoft.hybridcompute/machines/licenseProfiles' | extend machineId = tolower(tostring(id)) | extend licenseId = tolower(tostring(properties.esuProfile.assignedLicense)) | where subscriptionId == '$subId'"
+$ArcLicensesProfileQueryResponse = Search-AzGraph -Query $ArcLicensesProfileQuery
+
+foreach ($ArcLicenses in $ArcLicensesQueryResponse) {
+    $licensesId = $ArcLicenses.licenseId
+    $ArcLicensesFound = 'false'
+
+    foreach ($ArcLicensesProfile in $ArcLicensesProfileQueryResponse){
+        Write-Output "Profileid: "$ArcLicensesProfile.licenseId
+        if ($ArcLicensesProfile.licenseId -eq $licensesId) { $ArcLicensesFound = 'true' } 
+    }
 
 
-foreach ($ArcVm in $ArcVMQueryResponse) {
-    $vmname = $ArcVm.name
-    $location = $ArcVm.location
-    $resourceGroupName = $ArcVm.resourceGroup
-    Write-Output "Onboarding: "$ArcVm.name", "$ArcVm.ResourceGroup", "$location", "$subId
-
-    $ArcVmCpu = $ArcVm.cpu
-    if ($ArcVmCpu -lt 8 -and $ArcVM.edition -eq 'Standard') {$ArcVmCpu = 8}
-
-    # Privision ESU licenses
-    $ProvisionLicensPayload = @{ 
-        location = $location
-        properties= @{ 
-            licenseDetails= @{ 
-            state= 'Activated'
-            target= 'Windows Server 2012 R2'
-            Edition= $ArcVM.edition
-            Type= 'vCore'
-            Processors= $ArcVmCpu
-            }         
+    if ($ArcLicensesFound -ne 'true') {
+    
+        Write-Output "Deactivate: "$licensesId
+        $location = $ArcLicensesProfile.location
+        Write-Output $location
+        # Deactivate ESU licenses
+        $DeactivateLicensPayload = @{ 
+            location = $location
+            properties= @{ 
+                licenseDetails= @{ 
+                state= 'Deactivated'
+                }         
+            } 
         } 
-    } 
-    $ProvisionresId = "/subscriptions/$subId/resourceGroups/$resourceGroupName/providers/Microsoft.HybridCompute/licenses/"
-    $ProvisionresourceIdPath = "${ProvisionresId}${vmname}?api-version=2023-06-20-preview"
-   
-    $ProvisionLicensReq = Invoke-AzRestMethod -path $ProvisionresourceIdPath -Method Put -payload (ConvertTo-Json -Depth 100 $ProvisionLicensPayload)
-  
-    Write-Output "Provisiong statuscode "$ProvisionLicensReq
+        $DeactivateresId = $licensesId
+        $DeactivateresourceIdPath = "${DeactivateresId}?api-version=2023-06-20-preview"
+    
+        $DeactivateLicensReq = Invoke-AzRestMethod -path $DeactivateresourceIdPath -Method Patch -payload (ConvertTo-Json -Depth 100 $DeactivateLicensPayload)
+    
+        Write-Output "Deactivate statuscode "$DeactivateLicensReq
+    }
 
 
-    # Linking ESU Lisens to Arc Server
-    $ProvisionLicensObj = ($ProvisionLicensReq.Content) | ConvertFrom-Json
-
-    $LinkLicensPayload = @{ 
-        location = $location
-        properties= @{ 
-            esuProfile= @{ 
-                assignedLicense= $ProvisionLicensObj.Id
-            }         
-        } 
-    } 
-
-
-
-    $LinkresId = "/subscriptions/$subId/resourceGroups/$resourceGroupName/providers/Microsoft.HybridCompute/machines/"
-    $LinkresourceIdPath = "${LinkresId}${vmname}/licenseProfiles/default?api-version=2023-06-20-preview"
-
-    $LinkLicensReq = Invoke-AzRestMethod -path $LinkresourceIdPath -Method Put -payload (ConvertTo-Json -Depth 100 $LinkLicensPayload)
-    Write-Output "Link statuscode "$LinkLicensReq
 
 }
 

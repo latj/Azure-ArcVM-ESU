@@ -111,20 +111,6 @@ resource ScheduleRunbook_Runbook_Deactivate_Remove_ESU_licens 'Microsoft.Automat
 }
 
 
-param assignmentName string = guid(resourceGroup().id)
-resource SystemAssignedManagedIdentityRgContributor 'Microsoft.Authorization/roleAssignments@2020-03-01-preview' = {
-  name: assignmentName
-  properties: {
-    roleDefinitionId: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c'
-    principalId: AutomationAccount.identity.principalId
-  }
-  dependsOn:[
-    AutomationAccount
-    // Workaround because AutomationAccount.identity.principalId takes time to be available ...
-    // This workaround avoid the PrincipalNotFound error message
-    
-  ]
-}
 
 
 
