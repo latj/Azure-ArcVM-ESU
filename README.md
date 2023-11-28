@@ -1,7 +1,7 @@
 # Azure-ArcVM-ESU
 
 This repo is a set of Runbooks that allows you to schedule creation and assignment of ESU Licenses for Windows Server 2012 or Windows Server 2012 R2.
-It creates a Automantion account and two runbooks, one for creation and one for deactivation licenses, 
+It creates a Automantion account and two runbooks, one for creation and one for removing licenses. 
 
 *Quick start:*
 
@@ -21,4 +21,4 @@ $ az deployment group create --resource-group ESU-rg --template-file main.bicep
 ```
 
 * Post-deploy :
-You need to give the Managed Identity (System-managed) for the Automation Account. 
+You need to give the Managed Identity (System-managed) for the Automation Account, on the Azure Arc resources.  

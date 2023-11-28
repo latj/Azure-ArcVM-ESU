@@ -72,7 +72,13 @@ foreach ($ArcLicenses in $ArcLicensesQueryResponse) {
         Write-Output "Deactivate: "$licensesId
         $location = $ArcLicensesProfile.location
         Write-Output $location
-        # Deactivate ESU licenses
+        # Remove ESU licenses
+        $RemoveresId = $licensesId
+        $RemoveresourceIdPath = "${RemoveresId}?api-version=2023-06-20-preview"
+        $RemoveLicensReq = Invoke-AzRestMethod -path $RemoveresourceIdPath -Method Delete
+        Write-Output "Removestatuscode "$RemoveLicensReq
+        # Deactivate ESU licenses not inuse for reference
+        <#
         $DeactivateLicensPayload = @{ 
             location = $location
             properties= @{ 
@@ -83,10 +89,9 @@ foreach ($ArcLicenses in $ArcLicensesQueryResponse) {
         } 
         $DeactivateresId = $licensesId
         $DeactivateresourceIdPath = "${DeactivateresId}?api-version=2023-06-20-preview"
-    
         $DeactivateLicensReq = Invoke-AzRestMethod -path $DeactivateresourceIdPath -Method Patch -payload (ConvertTo-Json -Depth 100 $DeactivateLicensPayload)
-    
         Write-Output "Deactivate statuscode "$DeactivateLicensReq
+        #>
     }
 
 
